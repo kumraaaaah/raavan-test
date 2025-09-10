@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -9,7 +9,6 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-aframe.prod.js"></script>
 
     <style>
-        /* Basic styles for the UI overlay */
         body { margin: 0; }
         .ui-container {
             position: absolute;
@@ -46,66 +45,79 @@
             left: 20px;
             font-size: 24px;
             font-weight: bold;
-            display: none; /* Hidden initially */
+            display: none;
         }
     </style>
 
     <script>
-        // This is the main game controller component
-        AFRAME.registerComponent('game-manager', {
+        // Component to manage the UI and start the game
+        AFRAME.registerComponent('ui-manager', {
             init: function () {
-                // Get all necessary elements from the scene
-                this.sceneEl = document.querySelector('a-scene'); // Get the scene element
-                this.faceAnchor = document.querySelector('#face-anchor');
-                this.ramModel = document.querySelector('#ram-model');
-                this.arrow = document.querySelector('#arrow-model');
-                this.dussehraText = document.querySelector('#dussehra-text');
-                
-                // Get UI elements
                 this.startPanel = document.querySelector('#start-panel');
                 this.gameOverPanel = document.querySelector('#game-over-panel');
                 this.scoreDisplay = document.querySelector('#score-display');
                 this.finalScore = document.querySelector('#final-score');
-                
                 this.startButton = document.querySelector('#start-button');
                 this.restartButton = document.querySelector('#restart-button');
+                this.sceneEl = this.el; // The scene
 
+                this.startButton.addEventListener('click', () => {
+                    this.startPanel.style.display = 'none';
+                    // Emit an event that the game-manager will listen for
+                    this.sceneEl.emit('gamestart');
+                });
+
+                this.restartButton.addEventListener('click', () => {
+                    this.gameOverPanel.style.display = 'none';
+                    this.startPanel.style.display = 'flex';
+                    // Stop the MindAR system for a clean restart
+                    this.sceneEl.systems['mindar-face'].stop();
+                });
+
+                // Listen for gameover event from game-manager
+                this.sceneEl.addEventListener('gameover', (event) => {
+                    this.scoreDisplay.style.display = 'none';
+                    this.finalScore.textContent = event.detail.score;
+                    this.gameOverPanel.style.display = 'flex';
+                });
+            }
+        });
+
+        // This is the main game controller component
+        AFRAME.registerComponent('game-manager', {
+            init: function () {
                 this.gameState = 'menu';
                 this.score = 0;
                 this.arrowIsFlying = false;
                 this.arrowTimeout = null;
 
-                // Bind 'this' for event listeners
+                // Bind necessary methods
                 this.startGame = this.startGame.bind(this);
-                this.restartGame = this.restartGame.bind(this);
                 this.scheduleNextArrow = this.scheduleNextArrow.bind(this);
                 this.fireArrow = this.fireArrow.bind(this);
                 
-                // Add click listeners to buttons
-                this.startButton.addEventListener('click', this.startGame);
-                this.restartButton.addEventListener('click', this.restartGame);
-
-                // Hide the arrow and game over text initially
-                this.arrow.setAttribute('visible', false);
-                this.dussehraText.setAttribute('visible', false);
+                // Listen for the gamestart event from the UI manager
+                this.el.sceneEl.addEventListener('gamestart', this.startGame);
             },
 
+            // This function is now called by the event listener
             startGame: function() {
+                // Get elements only when the game starts, ensuring they exist
+                this.faceAnchor = this.el.sceneEl.querySelector('#face-anchor');
+                this.ramModel = this.el.sceneEl.querySelector('#ram-model');
+                this.arrow = this.el.sceneEl.querySelector('#arrow-model');
+                this.dussehraText = this.el.sceneEl.querySelector('#dussehra-text');
+                this.scoreDisplay = document.querySelector('#score-display');
+                
+                // Crucially, start the MindAR engine here
+                this.el.sceneEl.systems['mindar-face'].start();
+
                 this.gameState = 'playing';
                 this.score = 0;
                 this.scoreDisplay.textContent = 'Score: 0';
-                
-                // --- THIS IS THE CRUCIAL FIX ---
-                // This command tells the MindAR engine to start and turn on the camera.
-                this.sceneEl.systems['mindar-face'].start();
-
-                // Hide menu panels and game over text, show the score
-                this.startPanel.style.display = 'none';
-                this.gameOverPanel.style.display = 'none';
-                this.dussehraText.setAttribute('visible', false);
                 this.scoreDisplay.style.display = 'block';
+                this.dussehraText.setAttribute('visible', false);
 
-                // Start firing arrows
                 this.scheduleNextArrow();
             },
 
@@ -149,6 +161,7 @@
 
             tick: function() {
                 if (this.gameState !== 'playing' || !this.arrowIsFlying) return;
+                if (!this.faceAnchor || !this.arrow) return;
 
                 const arrowPosition = this.arrow.object3D.position;
                 const facePosition = this.faceAnchor.object3D.position;
@@ -167,19 +180,11 @@
                 this.arrow.setAttribute('visible', false);
                 this.arrow.removeAttribute('animation');
                 this.arrowIsFlying = false;
-                this.scoreDisplay.style.display = 'none';
-                this.finalScore.textContent = this.score;
-                this.gameOverPanel.style.display = 'flex';
                 
                 this.dussehraText.setAttribute('visible', true);
-            },
 
-            restartGame: function() {
-                // This stops the AR engine so the "Start Game" screen is clean
-                this.sceneEl.systems['mindar-face'].stop();
-                this.startPanel.style.display = 'flex';
-                this.gameOverPanel.style.display = 'none';
-                this.dussehraText.setAttribute('visible', false);
+                // Emit a gameover event with the score
+                this.el.sceneEl.emit('gameover', { score: this.score });
             }
         });
     </script>
@@ -205,15 +210,19 @@
         mindar-face="autoStart: false"
         vr-mode-ui="enabled: false"
         device-orientation-permission-ui="enabled: false"
-        game-manager>
+        game-manager
+        ui-manager>
         
+        <!-- The user-defined camera has been removed. MindAR creates its own. -->
+
         <a-entity mindar-face-target="anchorIndex: 0" id="face-anchor">
-            
+            <!-- Back Row -->
             <a-gltf-model src="./assets/raavan-head.glb" position="-0.45 0.2 -0.35" scale="0.1 0.1 0.1" rotation="0 30 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="-0.25 0.3 -0.3" scale="0.1 0.1 0.1" rotation="0 15 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="0 0.35 -0.25" scale="0.1 0.1 0.1"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="0.25 0.3 -0.3" scale="0.1 0.1 0.1" rotation="0 -15 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="0.45 0.2 -0.35" scale="0.1 0.1 0.1" rotation="0 -30 0"></a-gltf-model>
+            <!-- Front Row -->
             <a-gltf-model src="./assets/raavan-head.glb" position="-0.4 0 -0.2" scale="0.1 0.1 0.1" rotation="0 25 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="-0.2 0.05 -0.15" scale="0.1 0.1 0.1" rotation="0 15 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="0 0.1 -0.1" scale="0.1 0.1 0.1"></a-gltf-model>
@@ -229,9 +238,9 @@
         </a-entity>
 
         <a-gltf-model id="ram-model" src="./assets/ram.glb" position="0 -0.8 -2.5" scale="0.2 0.2 0.2" rotation="0 15 0"></a-gltf-model>
-        
         <a-gltf-model id="arrow-model" src="./assets/overwatch_-_hanzos_arrow.glb" scale="0.1 0.1 0.1"></a-gltf-model>
 
     </a-scene>
 </body>
 </html>
+

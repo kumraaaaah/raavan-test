@@ -36,7 +36,7 @@
 
     <script>
         // A single, robust component to manage the entire game.
-        // This new architecture uses the official 'arReady' event to prevent errors.
+        // This new architecture guarantees the AR system is ready before starting.
         AFRAME.registerComponent('dussehra-game', {
             init: function () {
                 // --- 1. GET ALL ELEMENTS ---
@@ -214,4 +214,6 @@
     </a-scene>
 </body>
 </html>
+
+
 

@@ -36,7 +36,7 @@
 
     <script>
         // A single, robust component to manage the entire game.
-        // This new architecture actively checks for readiness, preventing race conditions.
+        // This new architecture uses the official 'arReady' event to prevent errors.
         AFRAME.registerComponent('dussehra-game', {
             init: function () {
                 // --- 1. GET ALL ELEMENTS ---
@@ -58,35 +58,24 @@
                 this.score = 0;
                 this.arrowIsFlying = false;
                 this.arrowTimeout = null;
-                this.arReady = false; // New flag to track system readiness
-                this.startButton.disabled = true;
+                this.startButton.disabled = true; // Button starts disabled.
 
                 // --- 3. BIND METHODS ---
                 this.startGame = this.startGame.bind(this);
                 this.restartGame = this.restartGame.bind(this);
                 
                 // --- 4. ADD EVENT LISTENERS ---
+                
+                // --- THIS IS THE CRUCIAL FIX ---
+                // We listen for MindAR's official 'arReady' event. This guarantees
+                // the AR system is fully loaded before we do anything.
+                this.sceneEl.addEventListener('arReady', () => {
+                    this.startButton.disabled = false;
+                });
+                
+                // Add click listeners for the UI buttons
                 this.startButton.addEventListener('click', this.startGame);
                 this.restartButton.addEventListener('click', this.restartGame);
-            },
-
-            // --- THIS IS THE CRUCIAL FIX ---
-            // The tick function runs every frame. We use it once to safely check
-            // when the AR system is ready.
-            tick: function() {
-                // Check if the AR system is ready and we haven't enabled the button yet
-                if (this.sceneEl.systems['mindar-face'] && !this.arReady) {
-                    this.arReady = true;
-                    this.startButton.disabled = false;
-                }
-                
-                // Normal game logic continues here
-                if (this.gameState !== 'playing' || !this.arrowIsFlying) return;
-                const arrowPosition = this.arrow.object3D.position;
-                const facePosition = this.faceAnchor.object3D.position;
-                if (arrowPosition.distanceTo(facePosition) < 0.2) { 
-                    this.endGame();
-                }
             },
 
             startGame: function() {
@@ -94,8 +83,10 @@
                 this.score = 0;
                 this.scoreDisplay.textContent = 'Score: 0';
                 
+                // This command is now guaranteed to work because 'arReady' was fired.
                 this.sceneEl.systems['mindar-face'].start();
 
+                // Update UI visibility
                 this.startPanel.style.display = 'none';
                 this.gameOverPanel.style.display = 'none';
                 this.dussehraText.setAttribute('visible', false);
@@ -120,6 +111,7 @@
                 const ramPosition = this.ramModel.object3D.position;
                 this.arrow.setAttribute('position', ramPosition);
                 
+                // Use a short timeout to ensure the face has been tracked at least once
                 setTimeout(() => {
                     const facePosition = this.faceAnchor.object3D.position;
                     this.arrow.setAttribute('animation', {
@@ -140,6 +132,16 @@
                 }, { once: true });
             },
             
+            tick: function() {
+                // Game collision logic runs every frame
+                if (this.gameState !== 'playing' || !this.arrowIsFlying) return;
+                const arrowPosition = this.arrow.object3D.position;
+                const facePosition = this.faceAnchor.object3D.position;
+                if (arrowPosition.distanceTo(facePosition) < 0.2) { 
+                    this.endGame();
+                }
+            },
+
             endGame: function() {
                 this.gameState = 'gameOver';
                 clearTimeout(this.arrowTimeout);

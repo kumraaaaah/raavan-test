@@ -14,6 +14,11 @@
 
     <style>
         body { margin: 0; }
+        #ar-canvas {
+            position: fixed; top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 1; /* Behind UI and A-Frame */
+        }
         .ui-container {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 10; display: flex; flex-direction: column;
@@ -38,10 +43,9 @@
     </style>
 
     <script>
-        // A single, robust component to manage the entire game.
+        // A single, robust component to manage the game logic.
         AFRAME.registerComponent('dussehra-game', {
             init: function () {
-                // --- 1. GET ALL ELEMENTS ---
                 this.startPanel = document.querySelector('#start-panel');
                 this.gameOverPanel = document.querySelector('#game-over-panel');
                 this.scoreDisplay = document.querySelector('#score-display');
@@ -54,32 +58,13 @@
                 this.arrow = this.el.sceneEl.querySelector('#arrow-model');
                 this.dussehraText = this.el.sceneEl.querySelector('#dussehra-text');
                 
-                // --- 2. SET INITIAL STATE ---
                 this.gameState = 'menu';
                 this.score = 0;
                 this.arrowIsFlying = false;
-                this.startButton.disabled = true; // Button starts disabled.
 
-                // --- 3. BIND METHODS ---
                 this.startGame = this.startGame.bind(this);
                 this.restartGame = this.restartGame.bind(this);
                 
-                // --- 4. ADD EVENT LISTENERS ---
-
-                // --- THIS IS THE GUARANTEED FIX ---
-                // We listen for Jeeliz's official 'jeeliz-ready' event. This guarantees
-                // the AR system is fully loaded and the camera is ON.
-                this.el.sceneEl.addEventListener('jeeliz-ready', (event) => {
-                    if (event.detail.error) {
-                        console.error("FATAL ERROR:", event.detail.error);
-                        alert("ERROR: Could not start AR. Please check camera permissions and refresh.");
-                        return;
-                    }
-                    console.log("SUCCESS: Jeeliz is ready! You can now start the game.");
-                    this.startButton.disabled = false; // Enable the button.
-                    this.startButton.textContent = 'Start Game';
-                });
-
                 this.startButton.addEventListener('click', this.startGame);
                 this.restartButton.addEventListener('click', this.restartGame);
             },
@@ -138,13 +123,10 @@
             
             tick: function() {
                 if (this.gameState !== 'playing' || !this.arrowIsFlying) return;
-                
                 const arrowPosition = new THREE.Vector3();
                 this.arrow.object3D.getWorldPosition(arrowPosition);
-                
                 const facePosition = new THREE.Vector3();
                 this.faceAnchor.object3D.getWorldPosition(facePosition);
-
                 if (arrowPosition.distanceTo(facePosition) < 0.2) { 
                     this.endGame();
                 }
@@ -169,6 +151,9 @@
     </script>
 </head>
 <body>
+    <!-- A dedicated canvas for Jeeliz to control the camera feed -->
+    <canvas id="ar-canvas"></canvas>
+
     <div class="ui-container" id="start-panel">
         <div class="ui-panel">
             <h1>Dussehra Dodge</h1>
@@ -185,8 +170,13 @@
     </div>
     <div id="score-display">Score: 0</div>
     
-    <!-- This Jeeliz component automatically starts the camera and emits 'jeeliz-ready' -->
-    <a-scene jeeliz-facefilter="NNCPath: https://cdn.jsdelivr.net/npm/jeeliz-facefilter@1.3.1/dist/NNC.json;" embedded vr-mode-ui="enabled: false" dussehra-game>
+    <!-- A-Frame scene is now separate from the camera initialization -->
+    <a-scene
+        background="color: black"
+        vr-mode-ui="enabled: false"
+        dussehra-game
+        renderer="colorManagement: true; alpha: true;"
+        jeeliz-facefilter="canvasId: ar-canvas;">
         
         <a-entity id="face-anchor" jeeliz-facefilter-occluder>
             <!-- Back Row -->
@@ -215,6 +205,31 @@
         <a-gltf-model id="ram-model" src="./assets/ramtest.glb" position="0 -0.8 -2.5" scale="0.2 0.2 0.2" rotation="0 15 0"></a-gltf-model>
         <a-gltf-model id="arrow-model" src="./assets/overwatch_-_hanzos_arrow.glb" scale="0.1 0.1 0.1" visible="false"></a-gltf-model>
     </a-scene>
+
+    <script>
+        // --- THIS IS THE GUARANTEED FIX ---
+        // This script runs outside of A-Frame and starts the camera FIRST.
+        window.addEventListener('load', () => {
+            JEELIZFACEFILTER.init({
+                canvasId: 'ar-canvas',
+                NNCPath: 'https://cdn.jsdelivr.net/npm/jeeliz-facefilter@1.3.1/dist/NNC.json',
+                callbackReady: function(errCode, spec) {
+                    if (errCode) {
+                        console.error("FATAL ERROR: cannot initialize Jeeliz FaceFilter. errCode =", errCode);
+                        alert("ERROR: This experience requires camera access, which was denied or failed to start.");
+                        return;
+                    }
+                    console.log("SUCCESS: Jeeliz is ready! Camera is ON.");
+                    const startButton = document.querySelector('#start-button');
+                    startButton.disabled = false;
+                    startButton.textContent = 'Start AR';
+                },
+                callbackTrack: function(detectState) {
+                    // This can be left empty as the A-Frame component handles the 3D objects.
+                }
+            });
+        });
+    </script>
 </body>
 </html>
 

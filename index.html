@@ -39,6 +39,11 @@
             border-radius: 10px;
             cursor: pointer;
         }
+        /* Style for the disabled button */
+        .ui-button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
         #score-display {
             position: absolute;
             top: 20px;
@@ -50,7 +55,7 @@
     </style>
 
     <script>
-        // Component to manage the UI and start the game
+        // Component to manage the UI and respond to AR system readiness
         AFRAME.registerComponent('ui-manager', {
             init: function () {
                 this.startPanel = document.querySelector('#start-panel');
@@ -59,22 +64,31 @@
                 this.finalScore = document.querySelector('#final-score');
                 this.startButton = document.querySelector('#start-button');
                 this.restartButton = document.querySelector('#restart-button');
-                this.sceneEl = this.el; // The scene
+                this.sceneEl = this.el;
 
+                // --- THIS IS THE CRUCIAL FIX ---
+                // Start with the button disabled
+                this.startButton.disabled = true;
+
+                // Listen for the 'arReady' event, which MindAR emits when it's safe to start
+                this.sceneEl.addEventListener('arReady', () => {
+                    // Once ready, enable the button
+                    this.startButton.disabled = false;
+                });
+                
+                // Add event listeners for button clicks
                 this.startButton.addEventListener('click', () => {
                     this.startPanel.style.display = 'none';
-                    // Emit an event that the game-manager will listen for
                     this.sceneEl.emit('gamestart');
                 });
 
                 this.restartButton.addEventListener('click', () => {
                     this.gameOverPanel.style.display = 'none';
                     this.startPanel.style.display = 'flex';
-                    // Stop the MindAR system for a clean restart
                     this.sceneEl.systems['mindar-face'].stop();
                 });
 
-                // Listen for gameover event from game-manager
+                // Listen for gameover event
                 this.sceneEl.addEventListener('gameover', (event) => {
                     this.scoreDisplay.style.display = 'none';
                     this.finalScore.textContent = event.detail.score;
@@ -91,25 +105,21 @@
                 this.arrowIsFlying = false;
                 this.arrowTimeout = null;
 
-                // Bind necessary methods
                 this.startGame = this.startGame.bind(this);
                 this.scheduleNextArrow = this.scheduleNextArrow.bind(this);
                 this.fireArrow = this.fireArrow.bind(this);
                 
-                // Listen for the gamestart event from the UI manager
                 this.el.sceneEl.addEventListener('gamestart', this.startGame);
             },
 
-            // This function is now called by the event listener
             startGame: function() {
-                // Get elements only when the game starts, ensuring they exist
                 this.faceAnchor = this.el.sceneEl.querySelector('#face-anchor');
                 this.ramModel = this.el.sceneEl.querySelector('#ram-model');
                 this.arrow = this.el.sceneEl.querySelector('#arrow-model');
                 this.dussehraText = this.el.sceneEl.querySelector('#dussehra-text');
                 this.scoreDisplay = document.querySelector('#score-display');
                 
-                // Crucially, start the MindAR engine here
+                // Start the MindAR engine, which is now guaranteed to be ready
                 this.el.sceneEl.systems['mindar-face'].start();
 
                 this.gameState = 'playing';
@@ -137,17 +147,19 @@
                 const ramPosition = this.ramModel.object3D.position;
                 this.arrow.setAttribute('position', ramPosition);
                 
-                const facePosition = this.faceAnchor.object3D.position;
-                
-                this.arrow.setAttribute('animation', {
-                    property: 'position',
-                    to: `${facePosition.x} ${facePosition.y} ${facePosition.z}`,
-                    dur: 2000,
-                    easing: 'linear',
-                    startEvents: 'fire'
-                });
+                // Add a slight delay to ensure face tracking has an initial position
+                setTimeout(() => {
+                    const facePosition = this.faceAnchor.object3D.position;
+                    this.arrow.setAttribute('animation', {
+                        property: 'position',
+                        to: `${facePosition.x} ${facePosition.y} ${facePosition.z}`,
+                        dur: 2000,
+                        easing: 'linear',
+                        startEvents: 'fire'
+                    });
+                    this.arrow.emit('fire');
+                }, 100);
 
-                this.arrow.emit('fire');
                 this.arrow.addEventListener('animationcomplete', () => {
                     if (this.gameState === 'playing') {
                         this.score++;
@@ -183,7 +195,6 @@
                 
                 this.dussehraText.setAttribute('visible', true);
 
-                // Emit a gameover event with the score
                 this.el.sceneEl.emit('gameover', { score: this.score });
             }
         });
@@ -213,8 +224,6 @@
         game-manager
         ui-manager>
         
-        <!-- The user-defined camera has been removed. MindAR creates its own. -->
-
         <a-entity mindar-face-target="anchorIndex: 0" id="face-anchor">
             <!-- Back Row -->
             <a-gltf-model src="./assets/raavan-head.glb" position="-0.45 0.2 -0.35" scale="0.1 0.1 0.1" rotation="0 30 0"></a-gltf-model>

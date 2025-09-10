@@ -64,7 +64,7 @@
                 this.restartGame = this.restartGame.bind(this);
                 
                 // --- 4. ADD EVENT LISTENERS ---
-                // Listen for MindAR's 'arReady' event to enable the start button safely.
+                // Listen for MindAR's 'arReady' event. This guarantees the system is ready.
                 this.sceneEl.addEventListener('arReady', () => {
                     this.startButton.disabled = false;
                 });
@@ -179,7 +179,8 @@
         device-orientation-permission-ui="enabled: false"
         dussehra-game>
         
-        <a-camera active="false" position="0 0 0"></a-camera>
+        <!-- THE CRITICAL FIX: The conflicting <a-camera> tag has been removed. -->
+        <!-- MindAR will now create and manage its own camera without interference. -->
         
         <a-entity mindar-face-target="anchorIndex: 0" id="face-anchor">
             <!-- Back Row -->
@@ -197,7 +198,7 @@
             
             <a-entity id="dussehra-text"
                 text="value: HAPPY DUSSEHRA; color: #FFD700; align: center; width: 2; font: kelsonsans;"
-                position="0 0.5 0"
+                position="0 0.5 0" 
                 scale="0.3 0.3 0.3"
                 visible="false">
             </a-entity>
@@ -209,6 +210,8 @@
     </a-scene>
 </body>
 </html>
+
+
 
 
 

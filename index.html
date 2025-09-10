@@ -11,51 +11,32 @@
     <style>
         body { margin: 0; }
         .ui-container {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            font-family: Arial, sans-serif;
-            color: white;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            font-family: Arial, sans-serif; color: white;
             text-shadow: 0 0 5px black;
         }
         .ui-panel {
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
+            background-color: rgba(0, 0, 0, 0.7); padding: 20px;
+            border-radius: 15px; text-align: center;
         }
         .ui-panel h1 { margin-top: 0; }
         .ui-button {
-            background-color: #ff8c00;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            font-size: 20px;
-            border-radius: 10px;
-            cursor: pointer;
+            background-color: #ff8c00; color: white; border: none;
+            padding: 15px 30px; font-size: 20px;
+            border-radius: 10px; cursor: pointer;
         }
-        .ui-button:disabled {
-            background-color: #555;
-            cursor: not-allowed;
-        }
+        .ui-button:disabled { background-color: #555; cursor: not-allowed; }
         #score-display {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            font-size: 24px;
-            font-weight: bold;
-            display: none;
+            position: absolute; top: 20px; left: 20px; font-size: 24px;
+            font-weight: bold; display: none;
         }
     </style>
 
     <script>
         // A single, robust component to manage the entire game.
-        // This new architecture prevents race conditions.
+        // This new architecture actively checks for readiness, preventing race conditions.
         AFRAME.registerComponent('dussehra-game', {
             init: function () {
                 // --- 1. GET ALL ELEMENTS ---
@@ -77,6 +58,7 @@
                 this.score = 0;
                 this.arrowIsFlying = false;
                 this.arrowTimeout = null;
+                this.arReady = false; // New flag to track system readiness
                 this.startButton.disabled = true;
 
                 // --- 3. BIND METHODS ---
@@ -84,14 +66,27 @@
                 this.restartGame = this.restartGame.bind(this);
                 
                 // --- 4. ADD EVENT LISTENERS ---
-                // Listen for MindAR system ready event
-                this.sceneEl.addEventListener('arReady', () => {
-                    this.startButton.disabled = false;
-                });
-                
-                // Listen for button clicks
                 this.startButton.addEventListener('click', this.startGame);
                 this.restartButton.addEventListener('click', this.restartGame);
+            },
+
+            // --- THIS IS THE CRUCIAL FIX ---
+            // The tick function runs every frame. We use it once to safely check
+            // when the AR system is ready.
+            tick: function() {
+                // Check if the AR system is ready and we haven't enabled the button yet
+                if (this.sceneEl.systems['mindar-face'] && !this.arReady) {
+                    this.arReady = true;
+                    this.startButton.disabled = false;
+                }
+                
+                // Normal game logic continues here
+                if (this.gameState !== 'playing' || !this.arrowIsFlying) return;
+                const arrowPosition = this.arrow.object3D.position;
+                const facePosition = this.faceAnchor.object3D.position;
+                if (arrowPosition.distanceTo(facePosition) < 0.2) { 
+                    this.endGame();
+                }
             },
 
             startGame: function() {
@@ -99,10 +94,8 @@
                 this.score = 0;
                 this.scoreDisplay.textContent = 'Score: 0';
                 
-                // Start the MindAR engine to activate the camera
                 this.sceneEl.systems['mindar-face'].start();
 
-                // Update UI
                 this.startPanel.style.display = 'none';
                 this.gameOverPanel.style.display = 'none';
                 this.dussehraText.setAttribute('visible', false);
@@ -127,15 +120,11 @@
                 const ramPosition = this.ramModel.object3D.position;
                 this.arrow.setAttribute('position', ramPosition);
                 
-                // Use a short timeout to ensure the face has been tracked at least once
                 setTimeout(() => {
                     const facePosition = this.faceAnchor.object3D.position;
                     this.arrow.setAttribute('animation', {
-                        property: 'position',
-                        to: `${facePosition.x} ${facePosition.y} ${facePosition.z}`,
-                        dur: 2000,
-                        easing: 'linear',
-                        startEvents: 'fire'
+                        property: 'position', to: `${facePosition.x} ${facePosition.y} ${facePosition.z}`,
+                        dur: 2000, easing: 'linear', startEvents: 'fire'
                     });
                     this.arrow.emit('fire');
                 }, 100);
@@ -150,26 +139,13 @@
                     }
                 }, { once: true });
             },
-
-            tick: function() {
-                if (this.gameState !== 'playing' || !this.arrowIsFlying) return;
-
-                const arrowPosition = this.arrow.object3D.position;
-                const facePosition = this.faceAnchor.object3D.position;
-                
-                if (arrowPosition.distanceTo(facePosition) < 0.2) { 
-                    this.endGame();
-                }
-            },
             
             endGame: function() {
                 this.gameState = 'gameOver';
                 clearTimeout(this.arrowTimeout);
-
                 this.arrow.setAttribute('visible', false);
                 this.arrow.removeAttribute('animation');
                 this.arrowIsFlying = false;
-                
                 this.dussehraText.setAttribute('visible', true);
                 this.scoreDisplay.style.display = 'none';
                 this.finalScore.textContent = this.score;

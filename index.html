@@ -3,88 +3,36 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta charset="utf-8">
-    <title>Dussehra AR Experience</title>
+    <title>Dussehra AR - Core Test</title>
     
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-aframe.prod.js"></script>
-
-    <style>
-        body { margin: 0; }
-        #start-button-container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; display: flex; justify-content: center; align-items: center;
-        }
-        #start-button {
-            background-color: #ff8c00; color: white; border: none;
-            padding: 20px 40px; font-size: 24px;
-            border-radius: 10px; cursor: pointer;
-            font-family: Arial, sans-serif;
-        }
-        #start-button:disabled {
-            background-color: #555; cursor: not-allowed;
-        }
-    </style>
-
-    <script>
-        // This is the only script. It safely starts the AR experience.
-        AFRAME.registerComponent('ar-starter', {
-            init: function () {
-                const sceneEl = this.el;
-                const startButton = document.querySelector('#start-button');
-                
-                // Start with the button disabled
-                startButton.disabled = true;
-
-                // --- THE GUARANTEED FIX ---
-                // Listen for MindAR's official 'arReady' event. This ensures
-                // the system is fully initialized before we do anything.
-                sceneEl.addEventListener('arReady', () => {
-                    // Once ready, enable the button.
-                    startButton.disabled = false;
-                });
-
-                // When the button is clicked, start the AR and hide the button.
-                startButton.addEventListener('click', () => {
-                    // This command is now guaranteed to work.
-                    sceneEl.systems['mindar-face'].start();
-                    startButton.parentElement.style.display = 'none'; // Hide the button's container.
-                });
-            }
-        });
-    </script>
 </head>
 <body>
-    <!-- Simple UI with only a Start Button -->
-    <div id="start-button-container">
-        <button id="start-button">Start AR</button>
-    </div>
-    
+    <!-- 
+      This is the simplest possible MindAR scene. 
+      autoStart: true will automatically try to activate the camera on load.
+    -->
     <a-scene
-        mindar-face="autoStart: false"
+        mindar-face="autoStart: true"
         vr-mode-ui="enabled: false"
-        device-orientation-permission-ui="enabled: false"
-        ar-starter>
+        device-orientation-permission-ui="enabled: false">
         
-        <!-- The face anchor tracks your face and holds the Raavan heads -->
-        <a-entity mindar-face-target="anchorIndex: 0" id="face-anchor">
-            <!-- Back Row -->
-            <a-gltf-model src="./assets/raavan-head.glb" position="-0.45 0.2 -0.35" scale="0.1 0.1 0.1" rotation="0 30 0"></a-gltf-model>
-            <a-gltf-model src="./assets/raavan-head.glb" position="-0.25 0.3 -0.3" scale="0.1 0.1 0.1" rotation="0 15 0"></a-gltf-model>
-            <a-gltf-model src="./assets/raavan-head.glb" position="0 0.35 -0.25" scale="0.1 0.1 0.1"></a-gltf-model>
-            <a-gltf-model src="./assets/raavan-head.glb" position="0.25 0.3 -0.3" scale="0.1 0.1 0.1" rotation="0 -15 0"></a-gltf-model>
-            <a-gltf-model src="./assets/raavan-head.glb" position="0.45 0.2 -0.35" scale="0.1 0.1 0.1" rotation="0 -30 0"></a-gltf-model>
-            <!-- Front Row -->
-            <a-gltf-model src="./assets/raavan-head.glb" position="-0.4 0 -0.2" scale="0.1 0.1 0.1" rotation="0 25 0"></a-gltf-model>
-            <a-gltf-model src="./assets/raavan-head.glb" position="-0.2 0.05 -0.15" scale="0.1 0.1 0.1" rotation="0 15 0"></a-gltf-model>
-            <a-gltf-model src="./assets/raavan-head.glb" position="0 0.1 -0.1" scale="0.1 0.1 0.1"></a-gltf-model>
-            <a-gltf-model src="./assets/raavan-head.glb" position="0.2 0.05 -0.15" scale="0.1 0.1 0.1" rotation="0 -15 0"></a-gltf-model>
-            <a-gltf-model src="./assets/raavan-head.glb" position="0.4 0 -0.2" scale="0.1 0.1 0.1" rotation="0 -25 0"></a-gltf-model>
-        </a-entity>
+        <!-- THE FIX: MindAR requires a camera entity in the scene to initialize. -->
+        <a-camera active="false" position="0 0 0"></a-camera>
 
-        <!-- Stationary Ram Model -->
-        <a-gltf-model id="ram-model" src="./assets/ram.glb" position="0 -0.8 -2.5" scale="0.2 0.2 0.2" rotation="0 15 0"></a-gltf-model>
-        
+        <!-- The face anchor tracks your face. -->
+        <a-entity mindar-face-target="anchorIndex: 0">
+            <!-- A single Raavan head to test if tracking works. -->
+            <a-gltf-model 
+                src="./assets/raavan-head.glb" 
+                position="0 0.1 -0.1" 
+                scale="0.1 0.1 0.1">
+            </a-gltf-model>
+        </a-entity>
     </a-scene>
 </body>
 </html>
+
+
 

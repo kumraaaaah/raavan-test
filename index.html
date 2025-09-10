@@ -3,13 +3,25 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta charset="utf-8">
-    <title>Dussehra Dodge AR Game</title>
+    <title>Dussehra Dodge - Jeeliz AR</title>
     
+    <!-- A-Frame Library -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-aframe.prod.js"></script>
+
+    <!-- NEW: Jeeliz FaceFilter Library (replaces MindAR) -->
+    <script src="https://cdn.jsdelivr.net/npm/jeeliz-facefilter@1.3.1/dist/jeeliz-facefilter.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jeeliz-aframe@1.0.3/jeeliz-aframe.js"></script>
 
     <style>
         body { margin: 0; }
+        /* The canvas will be created by Jeeliz, we style it here */
+        #jeeliz-aframe-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
         .ui-container {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 10; display: flex; flex-direction: column;
@@ -27,7 +39,6 @@
             padding: 15px 30px; font-size: 20px;
             border-radius: 10px; cursor: pointer;
         }
-        .ui-button:disabled { background-color: #555; cursor: not-allowed; }
         #score-display {
             position: absolute; top: 20px; left: 20px; font-size: 24px;
             font-weight: bold; display: none;
@@ -38,8 +49,7 @@
         // A single, robust component to manage the entire game.
         AFRAME.registerComponent('dussehra-game', {
             init: function () {
-                // --- 1. GET ALL ELEMENTS ---
-                this.sceneEl = this.el;
+                // --- GET ALL ELEMENTS ---
                 this.startPanel = document.querySelector('#start-panel');
                 this.gameOverPanel = document.querySelector('#game-over-panel');
                 this.scoreDisplay = document.querySelector('#score-display');
@@ -47,40 +57,37 @@
                 this.startButton = document.querySelector('#start-button');
                 this.restartButton = document.querySelector('#restart-button');
                 
-                this.faceAnchor = this.el.querySelector('#face-anchor');
-                this.ramModel = this.el.querySelector('#ram-model');
-                this.arrow = this.el.querySelector('#arrow-model');
-                this.dussehraText = this.el.querySelector('#dussehra-text');
+                // We get the 3D objects when the game starts
+                this.faceAnchor = null;
+                this.ramModel = null;
+                this.arrow = null;
+                this.dussehraText = null;
                 
-                // --- 2. SET INITIAL STATE ---
+                // --- SET INITIAL STATE ---
                 this.gameState = 'menu';
                 this.score = 0;
                 this.arrowIsFlying = false;
-                this.arrowTimeout = null;
-                this.startButton.disabled = true; // Button starts disabled.
 
-                // --- 3. BIND METHODS ---
+                // --- BIND METHODS ---
                 this.startGame = this.startGame.bind(this);
                 this.restartGame = this.restartGame.bind(this);
                 
-                // --- 4. ADD EVENT LISTENERS ---
-                // Listen for MindAR's 'arReady' event to enable the start button safely.
-                this.sceneEl.addEventListener('arReady', () => {
-                    this.startButton.disabled = false;
-                });
-                
+                // --- ADD EVENT LISTENERS ---
                 this.startButton.addEventListener('click', this.startGame);
                 this.restartButton.addEventListener('click', this.restartGame);
             },
 
             startGame: function() {
+                // Get elements now that the scene is running
+                this.faceAnchor = this.el.sceneEl.querySelector('#face-anchor');
+                this.ramModel = this.el.sceneEl.querySelector('#ram-model');
+                this.arrow = this.el.sceneEl.querySelector('#arrow-model');
+                this.dussehraText = this.el.sceneEl.querySelector('#dussehra-text');
+                
                 this.gameState = 'playing';
                 this.score = 0;
                 this.scoreDisplay.textContent = 'Score: 0';
                 
-                // This command is now guaranteed to work.
-                this.sceneEl.systems['mindar-face'].start();
-
                 this.startPanel.style.display = 'none';
                 this.gameOverPanel.style.display = 'none';
                 this.dussehraText.setAttribute('visible', false);
@@ -92,27 +99,30 @@
             scheduleNextArrow: function() {
                 if (this.gameState !== 'playing') return;
                 const delay = Math.max(800, 2500 - (this.score * 75));
-                if (this.arrowTimeout) clearTimeout(this.arrowTimeout);
-                this.arrowTimeout = setTimeout(() => this.fireArrow(), delay);
+                setTimeout(() => this.fireArrow(), delay);
             },
             
             fireArrow: function() {
-                if (this.arrowIsFlying) return;
+                if (this.arrowIsFlying || this.gameState !== 'playing') return;
                 
                 this.arrowIsFlying = true;
                 this.arrow.setAttribute('visible', true);
                 
-                const ramPosition = this.ramModel.object3D.position;
-                this.arrow.setAttribute('position', ramPosition);
+                const ramPosition = new THREE.Vector3();
+                this.ramModel.object3D.getWorldPosition(ramPosition);
+                this.arrow.object3D.position.copy(ramPosition);
                 
-                setTimeout(() => {
-                    const facePosition = this.faceAnchor.object3D.position;
-                    this.arrow.setAttribute('animation', {
-                        property: 'position', to: `${facePosition.x} ${facePosition.y} ${facePosition.z}`,
-                        dur: 2000, easing: 'linear', startEvents: 'fire'
-                    });
-                    this.arrow.emit('fire');
-                }, 100);
+                const facePosition = new THREE.Vector3();
+                this.faceAnchor.object3D.getWorldPosition(facePosition);
+
+                this.arrow.setAttribute('animation', {
+                    property: 'position',
+                    to: `${facePosition.x} ${facePosition.y} ${facePosition.z}`,
+                    dur: 2000,
+                    easing: 'linear',
+                    startEvents: 'fire'
+                });
+                this.arrow.emit('fire');
 
                 this.arrow.addEventListener('animationcomplete', () => {
                     if (this.gameState === 'playing') {
@@ -127,8 +137,13 @@
             
             tick: function() {
                 if (this.gameState !== 'playing' || !this.arrowIsFlying) return;
-                const arrowPosition = this.arrow.object3D.position;
-                const facePosition = this.faceAnchor.object3D.position;
+                
+                const arrowPosition = new THREE.Vector3();
+                this.arrow.object3D.getWorldPosition(arrowPosition);
+                
+                const facePosition = new THREE.Vector3();
+                this.faceAnchor.object3D.getWorldPosition(facePosition);
+
                 if (arrowPosition.distanceTo(facePosition) < 0.2) { 
                     this.endGame();
                 }
@@ -136,10 +151,9 @@
 
             endGame: function() {
                 this.gameState = 'gameOver';
-                clearTimeout(this.arrowTimeout);
+                this.arrowIsFlying = false;
                 this.arrow.setAttribute('visible', false);
                 this.arrow.removeAttribute('animation');
-                this.arrowIsFlying = false;
                 this.dussehraText.setAttribute('visible', true);
                 this.scoreDisplay.style.display = 'none';
                 this.finalScore.textContent = this.score;
@@ -147,11 +161,8 @@
             },
 
             restartGame: function() {
-                // Stop the AR engine for a clean reset to the menu.
-                this.sceneEl.systems['mindar-face'].stop();
                 this.gameOverPanel.style.display = 'none';
-                this.startPanel.style.display = 'flex';
-                this.dussehraText.setAttribute('visible', false);
+                this.startGame();
             }
         });
     </script>
@@ -161,10 +172,10 @@
         <div class="ui-panel">
             <h1>Dussehra Dodge</h1>
             <p>Dodge the arrows by moving your head!</p>
-            <button id="start-button" class="ui-button">Start Game</button>
+            <button id="start-button" class="ui-button">Start AR</button>
         </div>
     </div>
-    <div class="ui-container" id="game-over-panel" style="display: none;">
+    <div class="ui-container" id="game-over-panel" style.display: none;>
         <div class="ui-panel">
             <h1>Game Over</h1>
             <p>Your Score: <span id="final-score">0</span></p>
@@ -173,16 +184,9 @@
     </div>
     <div id="score-display">Score: 0</div>
     
-    <a-scene
-        mindar-face="autoStart: false"
-        vr-mode-ui="enabled: false"
-        device-orientation-permission-ui="enabled: false"
-        dussehra-game>
-        
-        <!-- THE CRITICAL FIX: The conflicting <a-camera> tag has been REMOVED. -->
-        <!-- MindAR will now create and manage its own camera without interference. -->
-        
-        <a-entity mindar-face-target="anchorIndex: 0" id="face-anchor">
+    <!-- This Jeeliz component automatically creates the canvas and starts the camera -->
+    <a-scene jeeliz-facefilter="callbackReady: onJeelizReady" embedded dussehra-game>
+        <a-entity id="face-anchor" jeeliz-facefilter-occluder>
             <!-- Back Row -->
             <a-gltf-model src="./assets/raavan.gltf" position="-0.45 0.2 -0.35" scale="0.1 0.1 0.1" rotation="0 30 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan.gltf" position="-0.25 0.3 -0.3" scale="0.1 0.1 0.1" rotation="0 15 0"></a-gltf-model>
@@ -203,13 +207,25 @@
                 visible="false">
             </a-entity>
         </a-entity>
+        
+        <a-camera></a-camera>
 
         <a-gltf-model id="ram-model" src="./assets/ramtest.glb" position="0 -0.8 -2.5" scale="0.2 0.2 0.2" rotation="0 15 0"></a-gltf-model>
-        <a-gltf-model id="arrow-model" src="./assets/overwatch_-_hanzos_arrow.glb" scale="0.1 0.1 0.1"></a-gltf-model>
+        <a-gltf-model id="arrow-model" src="./assets/overwatch_-_hanzos_arrow.glb" scale="0.1 0.1 0.1" visible="false"></a-gltf-model>
 
     </a-scene>
+
+    <script>
+        // This function is called by Jeeliz when the AR is ready to start
+        function onJeelizReady(err, spec) {
+            if (err) {
+                console.error("An error occurred during Jeeliz initialization:", err);
+                return;
+            }
+            console.log("Jeeliz is ready!");
+            // Jeeliz is now running. The UI is still visible for the user to start the game.
+        }
+    </script>
 </body>
 </html>
-
-
 

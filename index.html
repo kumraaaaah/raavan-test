@@ -1,13 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta charset="utf-8">
     <title>Dussehra Dodge AR Game</title>
     
-    <!-- A-Frame Library -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <!-- MindAR Face Tracking Library -->
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-aframe.prod.js"></script>
 
     <style>
@@ -57,6 +55,7 @@
         AFRAME.registerComponent('game-manager', {
             init: function () {
                 // Get all necessary elements from the scene
+                this.sceneEl = document.querySelector('a-scene'); // Get the scene element
                 this.faceAnchor = document.querySelector('#face-anchor');
                 this.ramModel = document.querySelector('#ram-model');
                 this.arrow = document.querySelector('#arrow-model');
@@ -71,7 +70,7 @@
                 this.startButton = document.querySelector('#start-button');
                 this.restartButton = document.querySelector('#restart-button');
 
-                this.gameState = 'menu'; // 'menu', 'playing', 'gameOver'
+                this.gameState = 'menu';
                 this.score = 0;
                 this.arrowIsFlying = false;
                 this.arrowTimeout = null;
@@ -96,6 +95,10 @@
                 this.score = 0;
                 this.scoreDisplay.textContent = 'Score: 0';
                 
+                // --- THIS IS THE CRUCIAL FIX ---
+                // This command tells the MindAR engine to start and turn on the camera.
+                this.sceneEl.systems['mindar-face'].start();
+
                 // Hide menu panels and game over text, show the score
                 this.startPanel.style.display = 'none';
                 this.gameOverPanel.style.display = 'none';
@@ -106,15 +109,10 @@
                 this.scheduleNextArrow();
             },
 
-            // Function to schedule arrows with increasing speed
             scheduleNextArrow: function() {
                 if (this.gameState !== 'playing') return;
-
-                // Calculate the delay. Starts at 2500ms and gets faster with score, with a minimum of 800ms.
                 const delay = Math.max(800, 2500 - (this.score * 75));
-                
                 if (this.arrowTimeout) clearTimeout(this.arrowTimeout);
-                
                 this.arrowTimeout = setTimeout(this.fireArrow, delay);
             },
             
@@ -144,7 +142,7 @@
                         this.scoreDisplay.textContent = `Score: ${this.score}`;
                         this.arrow.setAttribute('visible', false);
                         this.arrowIsFlying = false;
-                        this.scheduleNextArrow(); // Schedule the next, faster arrow
+                        this.scheduleNextArrow();
                     }
                 }, { once: true });
             },
@@ -164,7 +162,7 @@
             
             endGame: function() {
                 this.gameState = 'gameOver';
-                clearTimeout(this.arrowTimeout); // Stop scheduling new arrows
+                clearTimeout(this.arrowTimeout);
 
                 this.arrow.setAttribute('visible', false);
                 this.arrow.removeAttribute('animation');
@@ -177,13 +175,16 @@
             },
 
             restartGame: function() {
-                this.startGame();
+                // This stops the AR engine so the "Start Game" screen is clean
+                this.sceneEl.systems['mindar-face'].stop();
+                this.startPanel.style.display = 'flex';
+                this.gameOverPanel.style.display = 'none';
+                this.dussehraText.setAttribute('visible', false);
             }
         });
     </script>
 </head>
 <body>
-    <!-- 2D HTML User Interface -->
     <div class="ui-container" id="start-panel">
         <div class="ui-panel">
             <h1>Dussehra Dodge</h1>
@@ -200,33 +201,25 @@
     </div>
     <div id="score-display">Score: 0</div>
     
-    <!-- Main AR Scene -->
     <a-scene
         mindar-face="autoStart: false"
         vr-mode-ui="enabled: false"
         device-orientation-permission-ui="enabled: false"
         game-manager>
         
-        <a-camera active="false" position="0 0 0"></a-camera>
-
-        <!-- The face anchor tracks your face and holds the Raavan heads -->
         <a-entity mindar-face-target="anchorIndex: 0" id="face-anchor">
             
-            <!-- The 10 heads of Raavan, arranged like your screenshot -->
-            <!-- Back Row -->
             <a-gltf-model src="./assets/raavan-head.glb" position="-0.45 0.2 -0.35" scale="0.1 0.1 0.1" rotation="0 30 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="-0.25 0.3 -0.3" scale="0.1 0.1 0.1" rotation="0 15 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="0 0.35 -0.25" scale="0.1 0.1 0.1"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="0.25 0.3 -0.3" scale="0.1 0.1 0.1" rotation="0 -15 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="0.45 0.2 -0.35" scale="0.1 0.1 0.1" rotation="0 -30 0"></a-gltf-model>
-            <!-- Front Row -->
             <a-gltf-model src="./assets/raavan-head.glb" position="-0.4 0 -0.2" scale="0.1 0.1 0.1" rotation="0 25 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="-0.2 0.05 -0.15" scale="0.1 0.1 0.1" rotation="0 15 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="0 0.1 -0.1" scale="0.1 0.1 0.1"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="0.2 0.05 -0.15" scale="0.1 0.1 0.1" rotation="0 -15 0"></a-gltf-model>
             <a-gltf-model src="./assets/raavan-head.glb" position="0.4 0 -0.2" scale="0.1 0.1 0.1" rotation="0 -25 0"></a-gltf-model>
             
-            <!-- The "Happy Dussehra" text, initially hidden -->
             <a-entity id="dussehra-text"
                 text="value: HAPPY DUSSEHRA; color: #FFD700; align: center; width: 2; font: kelsonsans;"
                 position="0 0.5 0"
@@ -235,15 +228,10 @@
             </a-entity>
         </a-entity>
 
-        <!-- Stationary Ram Model -->
         <a-gltf-model id="ram-model" src="./assets/ram.glb" position="0 -0.8 -2.5" scale="0.2 0.2 0.2" rotation="0 15 0"></a-gltf-model>
         
-        <!-- ======================================================= -->
-        <!-- == THIS IS THE LINE YOU NEED TO EDIT FOR YOUR ARROW === -->
-        <!-- ======================================================= -->
-        <a-gltf-model id="arrow-model" src="overwatch_-_hanzos_arrow.glb" scale="0.1 0.1 0.1"></a-gltf-model>
+        <a-gltf-model id="arrow-model" src="./assets/overwatch_-_hanzos_arrow.glb" scale="0.1 0.1 0.1"></a-gltf-model>
 
     </a-scene>
 </body>
 </html>
-

@@ -3,8 +3,8 @@
   <head>
     <title>Dussehra AR Experience</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- A-Frame Library (Version updated for better compatibility) -->
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <!-- A-Frame Library (Downgraded to a version known for stability with MindAR) -->
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <!-- MindAR Face Tracking Library for A-Frame -->
     <script src="https://cdn.jsdelivr.net/npm/mind-ar/dist/mindar-face-aframe.prod.js"></script>
 
@@ -42,102 +42,108 @@
     </style>
 
     <script>
-      // This component makes an arrow fly in a given direction
-      AFRAME.registerComponent('arrow-fly', {
-        schema: {
-          direction: { type: 'vec3' },
-          speed: { type: 'number', default: 8 }, // Speed of the arrow
-          lifetime: { type: 'number', default: 3000 } // Arrow disappears after 3 seconds
-        },
+      document.addEventListener('DOMContentLoaded', function() {
+        
+        // COMPONENT 1: Makes an arrow fly in a given direction
+        AFRAME.registerComponent('arrow-fly', {
+          schema: {
+            direction: { type: 'vec3' },
+            speed: { type: 'number', default: 8 },
+            lifetime: { type: 'number', default: 3000 }
+          },
 
-        init: function () {
-          // Point the arrow in the direction it's traveling
-          const targetPoint = this.el.object3D.position.clone().add(this.data.direction);
-          this.el.object3D.lookAt(targetPoint);
+          init: function () {
+            const targetPoint = this.el.object3D.position.clone().add(this.data.direction);
+            this.el.object3D.lookAt(targetPoint);
+            setTimeout(() => {
+              if (this.el && this.el.parentNode) {
+                this.el.parentNode.removeChild(this.el);
+              }
+            }, this.data.lifetime);
+          },
 
-          // Set a timer to remove the arrow entity after its lifetime
-          setTimeout(() => {
-            if (this.el && this.el.parentNode) {
-              this.el.parentNode.removeChild(this.el);
+          tick: function (time, delta) {
+            const dt = delta / 1000;
+            const distance = this.data.speed * dt;
+            const currentPos = this.el.object3D.position;
+            currentPos.x += this.data.direction.x * distance;
+            currentPos.y += this.data.direction.y * distance;
+            currentPos.z += this.data.direction.z * distance;
+            this.el.setAttribute('position', currentPos);
+          }
+        });
+
+        // COMPONENT 2: Manages the entire AR scene, UI, and shooting logic
+        AFRAME.registerComponent('ar-manager', {
+          init: function() {
+            // --- Get references to UI elements ---
+            const startUI = document.getElementById('start-ui');
+            const startButton = document.getElementById('start-button');
+            const loader = document.getElementById('loader');
+
+            // --- State variables ---
+            this.isReady = false;
+            this.ram = document.getElementById('ram');
+            this.camera = null; // Will be set on arReady
+            this.lastShotTime = 0;
+            this.shootInterval = 2500; // ms
+            this.ramWorldPos = new THREE.Vector3();
+            this.cameraWorldPos = new THREE.Vector3();
+
+            // --- Setup UI Listeners ---
+            startButton.addEventListener('click', () => {
+              startUI.style.display = 'none';
+              loader.style.display = 'flex';
+              // Start the MindAR system
+              this.el.systems['mindar-face-system'].start();
+            });
+
+            // --- Setup AR System Listeners ---
+            this.el.addEventListener('arReady', () => {
+              loader.style.display = 'none';
+              // Now that AR is ready, we can get the camera and enable the tick logic
+              this.camera = document.querySelector('a-camera');
+              this.isReady = true;
+            });
+
+            this.el.addEventListener('arError', (event) => {
+              loader.style.display = 'none';
+              console.error("MindAR error:", event.detail);
+            });
+          },
+
+          tick: function(time, delta) {
+            // Guard clause: Do nothing until the AR system is fully ready
+            if (!this.isReady) {
+              return;
             }
-          }, this.data.lifetime);
-        },
 
-        tick: function (time, delta) {
-          // Move the arrow forward every frame
-          const dt = delta / 1000; // time in seconds
-          const distance = this.data.speed * dt;
-          const currentPos = this.el.object3D.position;
+            // Make Ram always look at the camera
+            this.ram.object3D.lookAt(this.camera.object3D.position);
 
-          currentPos.x += this.data.direction.x * distance;
-          currentPos.y += this.data.direction.y * distance;
-          currentPos.z += this.data.direction.z * distance;
+            // Check if it's time to shoot again
+            if (time - this.lastShotTime > this.shootInterval) {
+              this.lastShotTime = time;
+              this.shootArrow();
+            }
+          },
 
-          this.el.setAttribute('position', currentPos);
-        }
-      });
-
-      // This component, attached to Ram, handles the shooting logic
-      AFRAME.registerComponent('ram-shooter', {
-        schema: {
-          shootInterval: { type: 'number', default: 2500 } // Shoots an arrow every 2.5 seconds
-        },
-        
-        init: function () {
-          this.camera = document.querySelector('a-camera');
-          this.lastShotTime = 0;
-          this.ramWorldPos = new THREE.Vector3();
-          this.cameraWorldPos = new THREE.Vector3();
-          this.arReady = false; // Flag to check if MindAR is ready
-
-          const loader = document.getElementById('loader');
-          
-          // Listen for the arReady event from the scene
-          this.el.sceneEl.addEventListener('arReady', () => {
-              this.arReady = true;
-              if (loader) loader.style.display = 'none';
-          });
-        },
-
-        tick: function (time, delta) {
-          // Only run the logic if the AR system is ready and the camera exists
-          if (!this.arReady || !this.camera) {
-            return;
+          shootArrow: function() {
+            const scene = this.el;
+            
+            this.ram.object3D.getWorldPosition(this.ramWorldPos);
+            this.camera.object3D.getWorldPosition(this.cameraWorldPos);
+            
+            const direction = this.cameraWorldPos.clone().sub(this.ramWorldPos).normalize();
+            
+            const arrow = document.createElement('a-entity');
+            arrow.setAttribute('gltf-model', '#arrow-model');
+            arrow.setAttribute('scale', '0.05 0.05 0.05');
+            arrow.setAttribute('position', this.ramWorldPos);
+            arrow.setAttribute('arrow-fly', { direction: direction });
+            scene.appendChild(arrow);
           }
-
-          // Make Ram always look at the user (the camera)
-          this.el.object3D.lookAt(this.camera.object3D.position);
-
-          // Check if it's time to shoot again
-          if (time - this.lastShotTime > this.data.shootInterval) {
-            this.lastShotTime = time;
-            this.shootArrow();
-          }
-        },
-        
-        shootArrow: function() {
-          const scene = this.el.sceneEl;
-          if (!scene) return;
-          
-          // Get current world positions of Ram and the camera
-          this.el.object3D.getWorldPosition(this.ramWorldPos);
-          this.camera.object3D.getWorldPosition(this.cameraWorldPos);
-          
-          // Calculate the direction vector from Ram to the camera
-          const direction = this.cameraWorldPos.clone().sub(this.ramWorldPos).normalize();
-          
-          // Create a new arrow entity
-          const arrow = document.createElement('a-entity');
-          arrow.setAttribute('gltf-model', '#arrow-model');
-          arrow.setAttribute('scale', '0.05 0.05 0.05'); // Adjust scale as needed
-          arrow.setAttribute('position', this.ramWorldPos);
-          
-          // Attach the arrow-fly component to make it move
-          arrow.setAttribute('arrow-fly', { direction: direction });
-          
-          // Add the arrow to the scene
-          scene.appendChild(arrow);
-        }
+        });
       });
     </script>
   </head>
@@ -156,15 +162,15 @@
         <p>Loading AR Experience...</p>
     </div>
 
-    <!-- The main A-Frame scene, initially not visible to the user -->
+    <!-- The main A-Frame scene -->
     <a-scene 
-      mindar-face 
+      mindar-face="autoStart: false"
+      ar-manager
       embedded 
       color-space="sRGB" 
       renderer="colorManagement: true, physicallyCorrectLights" 
       vr-mode-ui="enabled: false" 
-      device-orientation-permission-ui="enabled: false"
-      style="visibility: hidden;">
+      device-orientation-permission-ui="enabled: false">
       
       <!-- Asset management system to preload models -->
       <a-assets>
@@ -176,10 +182,7 @@
       <!-- The camera is managed by MindAR -->
       <a-camera active="false" position="0 0 0"></a-camera>
 
-      <!-- 
-        This is the face tracking anchor.
-        Anything inside this entity will move with your face.
-      -->
+      <!-- This is the face tracking anchor. -->
       <a-entity mindar-face-target="anchorIndex: 0">
         <!-- Ten Raavan heads positioned in a circle around the user's face -->
         <a-gltf-model src="#raavan-model" position="0.00 0.50 0.00" scale="0.1 0.1 0.1" rotation="0 180 0"></a-gltf-model>
@@ -190,55 +193,18 @@
         <a-gltf-model src="#raavan-model" position="-0.35 -0.35 0.00" scale="0.1 0.1 0.1" rotation="0 180 0"></a-gltf-model>
         <a-gltf-model src="#raavan-model" position="-0.50 0.00 0.00" scale="0.1 0.1 0.1" rotation="0 180 0"></a-gltf-model>
         <a-gltf-model src="#raavan-model" position="-0.35 0.35 0.00" scale="0.1 0.1 0.1" rotation="0 180 0"></a-gltf-model>
-        <!-- Two extra heads for a total of 10 -->
         <a-gltf-model src="#raavan-model" position="0.25 0.60 0.00" scale="0.1 0.1 0.1" rotation="0 180 0"></a-gltf-model>
         <a-gltf-model src="#raavan-model" position="-0.25 0.60 0.00" scale="0.1 0.1 0.1" rotation="0 180 0"></a-gltf-model>
       </a-entity>
       
-      <!-- 
-        The Ram model is placed outside the face anchor.
-        It will stay in one place relative to the world, shooting at you.
-        The `ram-shooter` component starts the action.
-      -->
+      <!-- The Ram model, placed in the world. -->
       <a-entity 
         id="ram" 
         gltf-model="#ram-model" 
         position="0 0.5 -2.5" 
-        scale="0.4 0.4 0.4"
-        ram-shooter>
+        scale="0.4 0.4 0.4">
       </a-entity>
     </a-scene>
-    
-    <script>
-      // This script handles the start button interaction
-      document.addEventListener('DOMContentLoaded', () => {
-        const sceneEl = document.querySelector('a-scene');
-        const startUI = document.getElementById('start-ui');
-        const startButton = document.getElementById('start-button');
-        const loader = document.getElementById('loader');
-
-        // Make the click handler async to wait for the AR system to start
-        startButton.addEventListener('click', async () => {
-            startUI.style.display = 'none';
-            loader.style.display = 'flex';
-            
-            // Get the MindAR system and start it. This returns a promise.
-            const mindarSystem = sceneEl.systems['mindar-face-system'];
-            try {
-              await mindarSystem.start(); // Wait for the system to initialize
-              // Make the scene visible only after the system has started
-              sceneEl.style.visibility = 'visible';
-            } catch(e) {
-              console.error("Error starting MindAR:", e);
-              // Handle errors (e.g., user denies camera access)
-              loader.style.display = 'none';
-              startUI.style.display = 'flex'; // Show start screen again
-            }
-        });
-      });
-    </script>
   </body>
 </html>
-
-
 

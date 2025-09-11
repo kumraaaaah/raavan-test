@@ -1,58 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AR Arrow Animation Demo</title>
+    <title>MindAR Face Arrow</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- A-Frame Library: The core 3D/VR framework -->
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <!-- AR.js Library for A-Frame: Handles the marker tracking -->
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <!-- A-Frame Library: The 3D framework -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <!-- MindAR Face Tracking Library -->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-aframe.prod.js"></script>
+
 </head>
 <body style="margin: 0; overflow: hidden;">
     
-    <!-- The AR Scene -->
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+    <a-scene mindar-face="uiLoading: yes; uiScanning: yes;" embedded color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+        
+        <!-- 
+          MODIFIED: The entire <a-assets> block has been removed for this test.
+          This prevents the browser from trying to load your .glb file, which may be
+          the source of the script error.
+        -->
 
-        <!-- Marker 1: Raavan (The Target) -->
-        <!-- This marker will represent the target for the arrow. -->
-        <a-marker type="pattern" url="assets/raavan-marker.patt">
-            <!-- I'm using a simple red box as a placeholder for Raavan. -->
-            <!-- You can replace this with your 3D model of Raavan. -->
-            <a-box id="raavan-model" color="#C23B22" position="0 0.5 0" scale="0.8 0.8 0.8"></a-box>
-        </a-marker>
+        <a-camera active="true" position="0 0 0"></a-camera>
 
-        <!-- Marker 2: Ram (The Shooter) -->
-        <!-- This marker will be the starting point for the arrow. -->
-        <a-marker type="pattern" url="assets/ram-marker.patt">
-            
-            <!-- This entity is your arrow 3D model. -->
-            <a-entity
-                id="arrow-model"
-                gltf-model="url(assets/overwatch_-_hanzos_arrow.glb)"
-                scale="0.01 0.01 0.01"
-                position="0 0.5 0"
-                rotation="-90 0 0"> <!-- Rotated to point forward -->
-
-                <!-- 
-                  This is the animation component.
-                  It tells the arrow to move from its starting position to a point
-                  10 units forward over 2 seconds, and then repeat forever.
-                -->
-                <a-animation
-                    attribute="position"
-                    from="0 0.5 0"
-                    to="0 0.5 -10"  
-                    dur="2000"      
-                    repeat="indefinite">
-                </a-animation>
-            </a-entity>
-        </a-marker>
-
-        <!-- A static camera that moves with your phone -->
-        <a-entity camera></a-entity>
+        <!-- 
+          The face target will now automatically show its direct children when a face is detected.
+          This relies entirely on the default behavior of MindAR.
+        -->
+        <a-entity mindar-face-target="anchorIndex: 168">
+            <!-- 
+              If this test is successful, a static red box will appear on your face.
+            -->
+            <a-box
+                color="red"
+                position="0 0 0"
+                scale="0.1 0.1 0.1">
+            </a-box>
+        </a-entity>
     </a-scene>
 </body>
 </html>
+
+
 
 
 

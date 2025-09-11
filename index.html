@@ -16,15 +16,27 @@
         <!-- Marker 1: Raavan (The Target) -->
         <!-- This marker will represent the target for the arrow. -->
         <a-marker type="pattern" url="assets/raavan-marker.patt">
-            <!-- I'm using a simple red box as a placeholder for Raavan. -->
-            <!-- You can replace this with your 3D model of Raavan. -->
-            <a-box id="raavan-model" color="#C23B22" position="0 0.5 0" scale="0.8 0.8 0.8"></a-box>
+            <!-- This entity loads your Raavan 3D model. -->
+            <a-entity
+                id="raavan-model"
+                gltf-model="url(assets/raavan.gltf)"
+                position="0 0 0"
+                scale="0.5 0.5 0.5">
+            </a-entity>
         </a-marker>
 
         <!-- Marker 2: Ram (The Shooter) -->
         <!-- This marker will be the starting point for the arrow. -->
         <a-marker type="pattern" url="assets/ram-marker.patt">
             
+            <!-- This entity loads your Ram 3D model. -->
+            <a-entity
+                id="ram-model"
+                gltf-model="url(assets/ramtest.glb)"
+                position="0 0 0"
+                scale="0.5 0.5 0.5">
+            </a-entity>
+
             <!-- This entity is your arrow 3D model. -->
             <a-entity
                 id="arrow-model"
@@ -53,3 +65,5 @@
     </a-scene>
 </body>
 </html>
+
+

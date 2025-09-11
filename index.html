@@ -39,7 +39,6 @@
 
     <script>
         // A single, robust component to manage the entire game.
-        // This new architecture guarantees the AR system is ready before starting.
         AFRAME.registerComponent('dussehra-game', {
             init: function () {
                 // --- 1. GET ALL ELEMENTS ---
@@ -216,6 +215,10 @@
         <a-gltf-model id="ram-model" src="./assets/ramtest.glb" position="0 -0.8 -2.5" scale="0.2 0.2 0.2" rotation="0 15 0"></a-gltf-model>
         <a-gltf-model id="arrow-model" src="./assets/overwatch_-_hanzos_arrow.glb" scale="0.1 0.1 0.1" visible="false"></a-gltf-model>
     </a-scene>
+
+    <!-- The conflicting, manual initialization script has been completely removed. -->
 </body>
 </html>
+
+
 

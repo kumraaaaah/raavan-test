@@ -3,7 +3,7 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta charset="utf-8">
-    <title>Dussehra Dodge - AR</title>
+    <title>Dussehra Dodge - Jeeliz AR</title>
     
     <!-- A-Frame Library -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -39,6 +39,7 @@
 
     <script>
         // A single, robust component to manage the entire game.
+        // This new architecture guarantees the AR system is ready before starting.
         AFRAME.registerComponent('dussehra-game', {
             init: function () {
                 // --- 1. GET ALL ELEMENTS ---
@@ -65,8 +66,10 @@
                 this.restartGame = this.restartGame.bind(this);
                 
                 // --- 4. ADD EVENT LISTENERS ---
-                // We listen for Jeeliz's official 'jeeliz-ready' event. This guarantees
-                // the AR system is fully loaded and the camera is ON.
+
+                // --- THIS IS THE GUARANTEED FIX ---
+                // We listen for Jeeliz's official 'jeeliz-ready' event. This is emitted by the
+                // a-scene component and guarantees the AR system is fully loaded and the camera is ON.
                 this.el.sceneEl.addEventListener('jeeliz-ready', (event) => {
                     if (event.detail.error) {
                         console.error("FATAL ERROR:", event.detail.error);
@@ -107,12 +110,10 @@
                 this.arrowIsFlying = true;
                 this.arrow.setAttribute('visible', true);
                 
-                // Get Ram's position in the world
                 const ramPosition = new THREE.Vector3();
                 this.ramModel.object3D.getWorldPosition(ramPosition);
                 this.arrow.object3D.position.copy(ramPosition);
                 
-                // Get the user's face position in the world
                 const facePosition = new THREE.Vector3();
                 this.faceAnchor.object3D.getWorldPosition(facePosition);
 

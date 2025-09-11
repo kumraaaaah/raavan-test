@@ -14,8 +14,8 @@
         margin: 0;
         font-family: sans-serif;
       }
-      /* Style for the loading overlay */
-      #loader {
+      /* General overlay styling */
+      .overlay {
         position: fixed;
         top: 0;
         left: 0;
@@ -24,10 +24,20 @@
         background: #222;
         color: white;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
-        font-size: 1.5em;
+        text-align: center;
         z-index: 10000;
+      }
+      #start-button {
+          padding: 12px 20px;
+          font-size: 1.2em;
+          cursor: pointer;
+          border: 2px solid white;
+          background: transparent;
+          color: white;
+          border-radius: 8px;
       }
     </style>
 
@@ -80,15 +90,12 @@
           this.cameraWorldPos = new THREE.Vector3();
           this.arReady = false; // Flag to check if MindAR is ready
 
-          // Hide loader when scene is ready
-          this.el.sceneEl.addEventListener('loaded', () => {
-              const loader = document.getElementById('loader');
-              if (loader) loader.style.display = 'none';
-          });
+          const loader = document.getElementById('loader');
           
           // Listen for the arReady event from the scene
           this.el.sceneEl.addEventListener('arReady', () => {
               this.arReady = true;
+              if (loader) loader.style.display = 'none';
           });
         },
 
@@ -135,10 +142,29 @@
     </script>
   </head>
   <body>
-    <div id="loader">Loading AR Experience...</div>
+    <!-- UI to prompt user to start the experience -->
+    <div id="start-ui" class="overlay">
+        <div>
+            <h1>Dussehra AR</h1>
+            <p>Allow camera access and click Start</p>
+            <button id="start-button">Start</button>
+        </div>
+    </div>
 
-    <!-- The main A-Frame scene with MindAR face tracking enabled -->
-    <a-scene mindar-face embedded color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <!-- Loader, hidden initially -->
+    <div id="loader" class="overlay" style="display: none;">
+        <p>Loading AR Experience...</p>
+    </div>
+
+    <!-- The main A-Frame scene, initially not visible to the user -->
+    <a-scene 
+      mindar-face 
+      embedded 
+      color-space="sRGB" 
+      renderer="colorManagement: true, physicallyCorrectLights" 
+      vr-mode-ui="enabled: false" 
+      device-orientation-permission-ui="enabled: false"
+      style="visibility: hidden;">
       
       <!-- Asset management system to preload models -->
       <a-assets>
@@ -181,8 +207,38 @@
         scale="0.4 0.4 0.4"
         ram-shooter>
       </a-entity>
-
     </a-scene>
+    
+    <script>
+      // This script handles the start button interaction
+      document.addEventListener('DOMContentLoaded', () => {
+        const sceneEl = document.querySelector('a-scene');
+        const startUI = document.getElementById('start-ui');
+        const startButton = document.getElementById('start-button');
+        const loader = document.getElementById('loader');
+
+        // Make the click handler async to wait for the AR system to start
+        startButton.addEventListener('click', async () => {
+            startUI.style.display = 'none';
+            loader.style.display = 'flex';
+            
+            // Get the MindAR system and start it. This returns a promise.
+            const mindarSystem = sceneEl.systems['mindar-face-system'];
+            try {
+              await mindarSystem.start(); // Wait for the system to initialize
+              // Make the scene visible only after the system has started
+              sceneEl.style.visibility = 'visible';
+            } catch(e) {
+              console.error("Error starting MindAR:", e);
+              // Handle errors (e.g., user denies camera access)
+              loader.style.display = 'none';
+              startUI.style.display = 'flex'; // Show start screen again
+            }
+        });
+      });
+    </script>
   </body>
 </html>
+
+
 

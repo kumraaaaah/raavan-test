@@ -1,1 +1,55 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"/><link rel="icon" href="./favicon.png"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#000000"/><meta name="description" content="WebAR built with MindAR Studio"/><link rel="apple-touch-icon" href="./favicon.png"/><link rel="manifest" href="./manifest.json"/><title>MindAR App</title><script defer="defer" src="./static/js/main.1573730f.js"></script><link href="./static/css/main.43335a5b.css" rel="stylesheet"></head><body><noscript>You need to enable JavaScript to run this app.</noscript><div id="root"></div></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AR Arrow Animation Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- A-Frame Library: The core 3D/VR framework -->
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <!-- AR.js Library for A-Frame: Handles the marker tracking -->
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+    
+    <!-- The AR Scene -->
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+
+        <!-- Marker 1: Raavan (The Target) -->
+        <!-- This marker will represent the target for the arrow. -->
+        <a-marker type="pattern" url="assets/raavan-marker.patt">
+            <!-- I'm using a simple red box as a placeholder for Raavan. -->
+            <!-- You can replace this with your 3D model of Raavan. -->
+            <a-box id="raavan-model" color="#C23B22" position="0 0.5 0" scale="0.8 0.8 0.8"></a-box>
+        </a-marker>
+
+        <!-- Marker 2: Ram (The Shooter) -->
+        <!-- This marker will be the starting point for the arrow. -->
+        <a-marker type="pattern" url="assets/ram-marker.patt">
+            
+            <!-- This entity is your arrow 3D model. -->
+            <a-entity
+                id="arrow-model"
+                gltf-model="url(assets/overwatch_-_hanzos_arrow.glb)"
+                scale="0.01 0.01 0.01"
+                position="0 0.5 0"
+                rotation="-90 0 0"> <!-- Rotated to point forward -->
+
+                <!-- 
+                  This is the animation component.
+                  It tells the arrow to move from its starting position to a point
+                  10 units forward over 2 seconds, and then repeat forever.
+                -->
+                <a-animation
+                    attribute="position"
+                    from="0 0.5 0"
+                    to="0 0.5 -10"  
+                    dur="2000"      
+                    repeat="indefinite">
+                </a-animation>
+            </a-entity>
+        </a-marker>
+
+        <!-- A static camera that moves with your phone -->
+        <a-entity camera></a-entity>
+    </a-scene>
+</body>
+</html>
